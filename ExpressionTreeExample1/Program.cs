@@ -13,7 +13,6 @@ namespace ExpressionTreeExample1
         static void Main(string[] args)
         {
             //http://www.cnblogs.com/Ninputer/archive/2009/08/28/expression_tree1.html
-
             Test10();
             Console.ReadKey();
         }
