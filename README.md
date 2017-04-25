@@ -9,4 +9,4 @@
 <h2>#region 练习八 new Point() { X = Math.Sin(a), Y = Math.Cos(a) }</h2>
 <h2>#region 练习九 循环10次输出“努力，奋斗”</h2>
 <h2>#region 练习十 快速排序</h2>
-<h2>#region 练习十一 统计每个字符出现的次数 <h3 style='color:red'>new~</h3></h2>
+<h2>#region 练习十一 统计每个字符出现的次数</h2>
