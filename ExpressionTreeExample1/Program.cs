@@ -4,6 +4,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace ExpressionTreeExample1
@@ -13,7 +14,10 @@ namespace ExpressionTreeExample1
         static void Main(string[] args)
         {
             //http://www.cnblogs.com/Ninputer/archive/2009/08/28/expression_tree1.html
-            Test10();
+            Test11();
+
+            Console.WriteLine();  
+
             Console.ReadKey();
         }
 
@@ -305,6 +309,61 @@ namespace ExpressionTreeExample1
         }
 
 
+        #endregion
+
+
+        #region 练习十一 统计每个字符出现的次数
+
+        public static void Test11()
+        {
+
+            ParameterExpression pName = Expression.Parameter(typeof(string), "name");
+            ParameterExpression pIndex = Expression.Parameter(typeof(int), "index");
+
+            IndexExpression nameIndex = Expression.Property(pName, "Chars", pIndex);
+
+            var dicType = typeof(Dictionary<char, int>);
+            ParameterExpression pDic = Expression.Parameter(dicType, "dic");
+
+            IndexExpression dicNameIndex = Expression.MakeIndex(pDic, dicType.GetProperty("Item", typeof(int), new[] { typeof(char) }), new[] { nameIndex });
+
+            ParameterExpression keys = Expression.Parameter(typeof(char[]), "keys");
+
+            BinaryExpression keysIndex = Expression.ArrayIndex(keys, Expression.Subtract(pIndex, Expression.Constant(1)));
+            IndexExpression dicKeysIndex = Expression.MakeIndex(pDic, dicType.GetProperty("Item", typeof(int), new[] { typeof(char) }), new[] { keysIndex });
+
+            MethodInfo format = typeof(string).GetMethod("Format", new[] { typeof(string), typeof(object), typeof(object), typeof(object) });
+            MethodCallExpression formatExp = Expression.Call(format, Expression.Constant(" {0}.\t字符：[{1}]，出现次数：{2}"), Expression.Convert(pIndex, typeof(object)), Expression.Convert(keysIndex, typeof(object)), Expression.Convert(dicKeysIndex, typeof(object)));
+
+            MethodCallExpression writeExp = Expression.Call(typeof(Console).GetMethod("WriteLine", new[] { typeof(string) }), formatExp);
+
+            MethodCallExpression replaceExp = Expression.Call(typeof(Regex).GetMethod("Replace", Enumerable.Repeat(typeof(string), 3).ToArray()), Expression.Call(pName, "ToLower", null), Expression.Constant("[^a-z]+"), Expression.Constant(""));
+
+            LabelTarget ltBreak = Expression.Label();
+            LabelTarget ltBreak2 = Expression.Label();
+
+            var block = Expression.Block(new[] { pIndex, pDic, keys }
+              , Expression.Assign(pIndex, Expression.Constant(0))
+              , Expression.Assign(pDic, Expression.New(dicType))
+              , Expression.Assign(pName, replaceExp)
+              , Expression.Loop(
+                  Expression.IfThenElse(Expression.LessThan(pIndex, Expression.Property(pName, "Length"))
+                  , Expression.Block(Expression.IfThenElse(Expression.Call(pDic, dicType.GetMethod("ContainsKey", new[] { typeof(char) }), nameIndex)
+                  , Expression.AddAssign(dicNameIndex, Expression.Constant(1))
+                  , Expression.Assign(dicNameIndex, Expression.Constant(1))), Expression.PostIncrementAssign(pIndex))
+                  , Expression.Break(ltBreak)), ltBreak)
+              , Expression.Assign(keys, Expression.Call(typeof(Enumerable).GetMethod("ToArray", BindingFlags.Static | BindingFlags.Public).MakeGenericMethod(typeof(char)), Expression.Property(pDic, "Keys")))
+              , Expression.Assign(pIndex, Expression.Constant(0))
+              , Expression.Loop(Expression.IfThenElse(Expression.LessThan(pIndex, Expression.Property(keys, "Length"))
+                  , Expression.Block(Expression.PostIncrementAssign(pIndex), writeExp), Expression.Break(ltBreak2)), ltBreak2)
+
+              );
+
+            var lambda = Expression.Lambda<Action<string>>(block, pName);
+
+            lambda.Compile()("Hello Stephen Chow , I`m zzzzzzw~ heihei");
+
+        }
         #endregion
 
     }
