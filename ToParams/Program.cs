@@ -7,7 +7,6 @@ using System.Text;
 
 namespace ToParams
 {
-    [GenericTypeArguments(typeof(Person))]
     public class Person
     {
         public int Id { get; set; }
@@ -22,8 +21,7 @@ namespace ToParams
 
         public int Age { get; set; }
     }
-
-    [GenericTypeArguments(typeof(Car))]
+    
     public class Car
     {
         public int Id { get; set; }
