@@ -5,6 +5,8 @@ VisualStudioVersion = 15.0.26228.12
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExpressionTreeExample1", "ExpressionTreeExample1\ExpressionTreeExample1.csproj", "{52E9EB2B-7AC3-4603-9F5B-9AE1EB196D52}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ToParams", "ToParams\ToParams.csproj", "{2387C547-D503-4298-B744-6232ED5008A3}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,8 +17,15 @@ Global
 		{52E9EB2B-7AC3-4603-9F5B-9AE1EB196D52}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{52E9EB2B-7AC3-4603-9F5B-9AE1EB196D52}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{52E9EB2B-7AC3-4603-9F5B-9AE1EB196D52}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2387C547-D503-4298-B744-6232ED5008A3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2387C547-D503-4298-B744-6232ED5008A3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2387C547-D503-4298-B744-6232ED5008A3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2387C547-D503-4298-B744-6232ED5008A3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {3C39A572-7732-40F0-8482-947791E2B66C}
 	EndGlobalSection
 EndGlobal
