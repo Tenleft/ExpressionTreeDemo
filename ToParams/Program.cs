@@ -17,20 +17,24 @@ namespace ToParams
 
         public DateTime BirthDay { get; set; }
 
+        public Car Car { get; set; }
+
         public string Desc { get; set; }
 
-        public int Age { get; set; }
+        public int? Age { get; set; }
+
     }
-    
+
     public class Car
     {
         public int Id { get; set; }
         public string CarName { get; set; }
+        public override string ToString() => this.CarName;
     }
     public class ObjToUrlParam
     {
 
-       public Person p = new Person() { Age = 18, BirthDay = DateTime.Now, Desc = "I'm Sharp", Gender = true, Id = 1, Name = "Sharp Cham" };
+        public Person p = new Person() { Age = 18, BirthDay = DateTime.Now, Desc = "I'm Sharp", Gender = true, Id = 1, Name = "Sharp Cham" };
         public Car c = new Car { Id = 2, CarName = "bc" };
         static Dictionary<Type, object> toParamDic = new Dictionary<Type, object>();
 
@@ -64,42 +68,63 @@ namespace ToParams
             {
                 return string.Empty;
             }
+            var props = objType.GetProperties();
+            if (props.Length == 0)
+            {
+                return string.Empty;
+            }
             if (!toParamDic.ContainsKey(objType))
             {
                 lock (toParamDic)
                 {
-                    var props = objType.GetProperties();
                     var objParam = Expression.Parameter(objType, "obj");
                     var sbType = typeof(StringBuilder);
                     var sbParam = Expression.Parameter(sbType, "sb");
                     var sbCtor = sbType.GetConstructor(new[] { typeof(int) });
-                    var sbAssign = Expression.Assign(sbParam, Expression.New(sbCtor, Expression.Constant(128)));
-                    var sbStrAppend = sbType.GetMethod("Append", new[] { typeof(string) });
-                    var sbToString = sbType.GetMethod("ToString", Type.EmptyTypes);
+
+                    //创建 StringBuilder 对象sb => sb = new StringBuilder(64);
+                    var sbAssign = Expression.Assign(sbParam, Expression.New(sbCtor, Expression.Constant(64)));
+
+                    var sbStrAppend = sbType.GetMethod("Append", new[] { typeof(string) });//获取StringBuilder的 Append方法
+                    var sbToString = sbType.GetMethod("ToString", Type.EmptyTypes);//获取StringBuilder的 ToString方法
 
                     var expList = new List<Expression>();
                     expList.Add(sbAssign);
                     for (int i = 0; i < props.Length; i++)
                     {
+                        //sb.Append(props[i].Name)
                         expList.Add(Expression.Call(sbParam, sbStrAppend, Expression.Constant(props[i].Name)));
+                        //sb.Append("=")
                         expList.Add(Expression.Call(sbParam, sbStrAppend, Expression.Constant("=")));
                         var pValue = Expression.Property(objParam, props[i].Name);
 
                         var pValueType = pValue.Type;
-                        if (pValueType == typeof(string))
+                        if (pValueType == typeof(string))//string 类型
                         {
                             expList.Add(Expression.Call(sbParam, sbStrAppend, pValue));
                         }
-                        else
+                        else if (pValueType.IsValueType)//值类型
                         {
                             var valueToStr = Expression.Call(pValue, pValueType.GetMethod("ToString", Type.EmptyTypes));
                             expList.Add(Expression.Call(sbParam, sbStrAppend, valueToStr));
                         }
+                        else //非string 类型的引用类型
+                        {
+                            var valueToStr = Expression.Call(pValue, pValueType.GetMethod("ToString", Type.EmptyTypes));
+                            var ifElseExp = Expression.IfThenElse(Expression.Equal(pValue, Expression.Constant(null))
+                                  , Expression.Call(sbParam, sbStrAppend, Expression.Constant(""))//null值处理  => sb.Append("")
+                                  , Expression.Call(sbParam, sbStrAppend, valueToStr)//非null => sb.Append(value.ToString())
+                                  );
+                            expList.Add(ifElseExp);
+                        }
+
                         if (props.Length - 1 != i)
                         {
+                            //sb.Append("&")
                             expList.Add(Expression.Call(sbParam, sbStrAppend, Expression.Constant("&")));
                         }
                     }
+                    //sb.ToString()
                     expList.Add(Expression.Call(sbParam, sbToString));
                     var lambdaExp = Expression.Lambda<Func<T, string>>(
                          Expression.Block(
@@ -149,16 +174,20 @@ namespace ToParams
 
         static void Main(string[] args)
         {
-            //var summary = BenchmarkRunner.Run<ObjToUrlParam>();
+            //MultipleReturn()
 
-
-            #region MultipleReturn test
             ObjToUrlParam toUrlParam = new ObjToUrlParam();
-          
+
+            Console.WriteLine(toUrlParam.ExpressionFunc(new object()));
             Console.WriteLine(toUrlParam.ExpressionFunc(toUrlParam.c));
             Console.WriteLine(toUrlParam.ExpressionFunc(toUrlParam.p));
-            Console.WriteLine(toUrlParam.Reflector(toUrlParam.p)); 
-            #endregion
+            toUrlParam.p.Age = null;
+            toUrlParam.p.Car = new Car { CarName = "Baoma" };
+            Console.WriteLine(toUrlParam.ExpressionFunc(toUrlParam.p));
+
+            Console.WriteLine(toUrlParam.Reflector(toUrlParam.p));
+
+            //var summary = BenchmarkRunner.Run<ObjToUrlParam>();
 
             Console.ReadKey();
         }
