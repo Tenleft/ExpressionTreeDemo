@@ -9,6 +9,12 @@ namespace ToParams
 {
     public class Person
     {
+        public int this[int i]
+        {
+            get { return this.Id + i; }
+            set { this.Id = value - 1; }
+        }
+
         public int Id { get; set; }
 
         public string Name { get; set; }
@@ -64,9 +70,13 @@ namespace ToParams
         public string ExpressionFunc<T>(T obj)
         {
             var objType = typeof(T);
-            if (obj == null || objType.IsValueType)
+            if (obj == null)
             {
                 return string.Empty;
+            }
+            if (objType.IsValueType || objType == typeof(string))
+            {
+                return Convert.ToString(obj);
             }
             var props = objType.GetProperties();
             if (props.Length == 0)
@@ -82,55 +92,60 @@ namespace ToParams
                     var sbParam = Expression.Parameter(sbType, "sb");
                     var sbCtor = sbType.GetConstructor(new[] { typeof(int) });
 
-                    //创建 StringBuilder 对象sb => sb = new StringBuilder(64);
+                    // 创建 StringBuilder 对象sb => sb = new StringBuilder(64);
                     var sbAssign = Expression.Assign(sbParam, Expression.New(sbCtor, Expression.Constant(64)));
 
-                    var sbStrAppend = sbType.GetMethod("Append", new[] { typeof(string) });//获取StringBuilder的 Append方法
-                    var sbToString = sbType.GetMethod("ToString", Type.EmptyTypes);//获取StringBuilder的 ToString方法
+                    var sbStrAppend = sbType.GetMethod("Append", new[] { typeof(string) });// 获取StringBuilder的 Append方法
+                    var sbToString = sbType.GetMethod("ToString", Type.EmptyTypes);// 获取StringBuilder的 ToString方法
 
                     var expList = new List<Expression>();
                     expList.Add(sbAssign);
                     for (int i = 0; i < props.Length; i++)
                     {
-                        //sb.Append(props[i].Name)
+                        // 如果是索引则跳过
+                        if (props[i].GetIndexParameters()?.Length > 0)
+                        {
+                            continue;
+                        }
+                        // sb.Append(props[i].Name)
                         expList.Add(Expression.Call(sbParam, sbStrAppend, Expression.Constant(props[i].Name)));
-                        //sb.Append("=")
+                        // sb.Append("=")
                         expList.Add(Expression.Call(sbParam, sbStrAppend, Expression.Constant("=")));
                         var pValue = Expression.Property(objParam, props[i].Name);
 
                         var pValueType = pValue.Type;
-                        if (pValueType == typeof(string))//string 类型
+                        if (pValueType == typeof(string))// string 类型
                         {
                             expList.Add(Expression.Call(sbParam, sbStrAppend, pValue));
                         }
-                        else if (pValueType.IsValueType)//值类型
+                        else if (pValueType.IsValueType)// 值类型
                         {
                             var valueToStr = Expression.Call(pValue, pValueType.GetMethod("ToString", Type.EmptyTypes));
                             expList.Add(Expression.Call(sbParam, sbStrAppend, valueToStr));
                         }
-                        else //非string 类型的引用类型
+                        else // 非string 类型的引用类型
                         {
                             var valueToStr = Expression.Call(pValue, pValueType.GetMethod("ToString", Type.EmptyTypes));
                             var ifElseExp = Expression.IfThenElse(Expression.Equal(pValue, Expression.Constant(null))
-                                  , Expression.Call(sbParam, sbStrAppend, Expression.Constant(""))//null值处理  => sb.Append("")
-                                  , Expression.Call(sbParam, sbStrAppend, valueToStr)//非null => sb.Append(value.ToString())
+                                  , Expression.Call(sbParam, sbStrAppend, Expression.Constant(""))// null值处理  => sb.Append("")
+                                  , Expression.Call(sbParam, sbStrAppend, valueToStr)// 非null => sb.Append(value.ToString())
                                   );
                             expList.Add(ifElseExp);
                         }
 
                         if (props.Length - 1 != i)
                         {
-                            //sb.Append("&")
+                            // sb.Append("&")
                             expList.Add(Expression.Call(sbParam, sbStrAppend, Expression.Constant("&")));
                         }
                     }
-                    //sb.ToString()
+                    // sb.ToString()
                     expList.Add(Expression.Call(sbParam, sbToString));
                     var lambdaExp = Expression.Lambda<Func<T, string>>(
                          Expression.Block(
-                             typeof(string)//返回值类型
-                             , new ParameterExpression[] { sbParam }//block块参数
-                             , expList.ToArray()//block块内容
+                             typeof(string)// 返回值类型
+                             , new ParameterExpression[] { sbParam }// block块参数
+                             , expList.ToArray()// block块内容
                              )
                          , objParam);
                     toParamDic[objType] = lambdaExp.Compile();
@@ -157,6 +172,10 @@ namespace ToParams
             StringBuilder sb = new StringBuilder(128);
             for (int i = 0; i < props.Length; i++)
             {
+                if (props[i].GetIndexParameters()?.Length > 0)
+                {
+                    continue;
+                }
                 sb.Append(props[i].Name);
                 sb.Append('=');
                 sb.Append(props[i].GetValue(obj));
@@ -178,6 +197,9 @@ namespace ToParams
 
             ObjToUrlParam toUrlParam = new ObjToUrlParam();
 
+            Console.WriteLine(toUrlParam.ExpressionFunc("Hello"));
+            Console.WriteLine(toUrlParam.ExpressionFunc(1));
+            Console.WriteLine(toUrlParam.ExpressionFunc(false));
             Console.WriteLine(toUrlParam.ExpressionFunc(new object()));
             Console.WriteLine(toUrlParam.ExpressionFunc(toUrlParam.c));
             Console.WriteLine(toUrlParam.ExpressionFunc(toUrlParam.p));
