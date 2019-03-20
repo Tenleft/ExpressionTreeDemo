@@ -87,68 +87,72 @@ namespace ToParams
             {
                 lock (toParamDic)
                 {
-                    var objParam = Expression.Parameter(objType, "obj");
-                    var sbType = typeof(StringBuilder);
-                    var sbParam = Expression.Parameter(sbType, "sb");
-                    var sbCtor = sbType.GetConstructor(new[] { typeof(int) });
-
-                    // 创建 StringBuilder 对象sb => sb = new StringBuilder(64);
-                    var sbAssign = Expression.Assign(sbParam, Expression.New(sbCtor, Expression.Constant(64)));
-
-                    var sbStrAppend = sbType.GetMethod("Append", new[] { typeof(string) });// 获取StringBuilder的 Append方法
-                    var sbToString = sbType.GetMethod("ToString", Type.EmptyTypes);// 获取StringBuilder的 ToString方法
-
-                    var expList = new List<Expression>();
-                    expList.Add(sbAssign);
-                    for (int i = 0; i < props.Length; i++)
+                    if (!toParamDic.ContainsKey(objType))
                     {
-                        // 如果是索引则跳过
-                        if (props[i].GetIndexParameters()?.Length > 0)
-                        {
-                            continue;
-                        }
-                        // sb.Append(props[i].Name)
-                        expList.Add(Expression.Call(sbParam, sbStrAppend, Expression.Constant(props[i].Name)));
-                        // sb.Append("=")
-                        expList.Add(Expression.Call(sbParam, sbStrAppend, Expression.Constant("=")));
-                        var pValue = Expression.Property(objParam, props[i].Name);
+                        var objParam = Expression.Parameter(objType, "obj");
+                        var sbType = typeof(StringBuilder);
+                        var sbParam = Expression.Parameter(sbType, "sb");
+                        var sbCtor = sbType.GetConstructor(new[] { typeof(int) });
 
-                        var pValueType = pValue.Type;
-                        if (pValueType == typeof(string))// string 类型
-                        {
-                            expList.Add(Expression.Call(sbParam, sbStrAppend, pValue));
-                        }
-                        else if (pValueType.IsValueType)// 值类型
-                        {
-                            var valueToStr = Expression.Call(pValue, pValueType.GetMethod("ToString", Type.EmptyTypes));
-                            expList.Add(Expression.Call(sbParam, sbStrAppend, valueToStr));
-                        }
-                        else // 非string 类型的引用类型
-                        {
-                            var valueToStr = Expression.Call(pValue, pValueType.GetMethod("ToString", Type.EmptyTypes));
-                            var ifElseExp = Expression.IfThenElse(Expression.Equal(pValue, Expression.Constant(null))
-                                  , Expression.Call(sbParam, sbStrAppend, Expression.Constant(""))// null值处理  => sb.Append("")
-                                  , Expression.Call(sbParam, sbStrAppend, valueToStr)// 非null => sb.Append(value.ToString())
-                                  );
-                            expList.Add(ifElseExp);
-                        }
+                        // 创建 StringBuilder 对象sb => sb = new StringBuilder(64);
+                        var sbAssign = Expression.Assign(sbParam, Expression.New(sbCtor, Expression.Constant(64)));
+                        // 获取StringBuilder的 Append方法
+                        var sbStrAppend = sbType.GetMethod(nameof(StringBuilder.Append), new[] { typeof(string) });
+                        // 获取StringBuilder的 ToString方法
+                        var sbToString = sbType.GetMethod(nameof(StringBuilder.ToString), Type.EmptyTypes);
 
-                        if (props.Length - 1 != i)
+                        var expList = new List<Expression>();
+                        expList.Add(sbAssign);
+                        for (int i = 0; i < props.Length; i++)
                         {
-                            // sb.Append("&")
-                            expList.Add(Expression.Call(sbParam, sbStrAppend, Expression.Constant("&")));
+                            // 如果是索引则跳过
+                            if (props[i].GetIndexParameters()?.Length > 0)
+                            {
+                                continue;
+                            }
+                            // sb.Append(props[i].Name)
+                            expList.Add(Expression.Call(sbParam, sbStrAppend, Expression.Constant(props[i].Name)));
+                            // sb.Append("=")
+                            expList.Add(Expression.Call(sbParam, sbStrAppend, Expression.Constant("=")));
+                            var pValue = Expression.Property(objParam, props[i].Name);
+
+                            var pValueType = pValue.Type;
+                            if (pValueType == typeof(string))// string 类型
+                            {
+                                expList.Add(Expression.Call(sbParam, sbStrAppend, pValue));
+                            }
+                            else if (pValueType.IsValueType)// 值类型
+                            {
+                                var valueToStr = Expression.Call(pValue, pValueType.GetMethod("ToString", Type.EmptyTypes));
+                                expList.Add(Expression.Call(sbParam, sbStrAppend, valueToStr));
+                            }
+                            else // 非string 类型的引用类型
+                            {
+                                var valueToStr = Expression.Call(pValue, pValueType.GetMethod("ToString", Type.EmptyTypes));
+                                var ifElseExp = Expression.IfThenElse(Expression.Equal(pValue, Expression.Constant(null))
+                                      , Expression.Call(sbParam, sbStrAppend, Expression.Constant(""))// null值处理  => sb.Append("")
+                                      , Expression.Call(sbParam, sbStrAppend, valueToStr)// 非null => sb.Append(value.ToString())
+                                      );
+                                expList.Add(ifElseExp);
+                            }
+
+                            if (props.Length - 1 != i)
+                            {
+                                // sb.Append("&")
+                                expList.Add(Expression.Call(sbParam, sbStrAppend, Expression.Constant("&")));
+                            }
                         }
+                        // sb.ToString()
+                        expList.Add(Expression.Call(sbParam, sbToString));
+                        var lambdaExp = Expression.Lambda<Func<T, string>>(
+                             Expression.Block(
+                                 typeof(string)// 返回值类型
+                                 , new ParameterExpression[] { sbParam }// block块参数
+                                 , expList.ToArray()// block块内容
+                                 )
+                             , objParam);
+                        toParamDic[objType] = lambdaExp.Compile();
                     }
-                    // sb.ToString()
-                    expList.Add(Expression.Call(sbParam, sbToString));
-                    var lambdaExp = Expression.Lambda<Func<T, string>>(
-                         Expression.Block(
-                             typeof(string)// 返回值类型
-                             , new ParameterExpression[] { sbParam }// block块参数
-                             , expList.ToArray()// block块内容
-                             )
-                         , objParam);
-                    toParamDic[objType] = lambdaExp.Compile();
                 }
             }
 
