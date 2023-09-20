@@ -211,100 +211,103 @@ namespace ExpressionTreeExample1
 
         #region 练习十 快速排序
 
-        public static void Test10()
+     public static void Test10()
         {
-
+        
             ParameterExpression pArr = Expression.Parameter(typeof(int[]), "arr");
             ParameterExpression pStart = Expression.Parameter(typeof(int), "start");
             ParameterExpression pEnd = Expression.Parameter(typeof(int), "end");
-
+        
             ParameterExpression pQuickSort = Expression.Parameter(typeof(Action<int[], int, int>), "QuickSort");
             ParameterExpression s = Expression.Parameter(typeof(int), "s");
             ParameterExpression e = Expression.Parameter(typeof(int), "e");
             ParameterExpression temp = Expression.Parameter(typeof(int), "temp");
-
+        
             LabelTarget ltBreak1 = Expression.Label();
             LabelTarget ltBreak2 = Expression.Label();
             LabelTarget ltBreak3 = Expression.Label();
-
-            MethodInfo arrSet = typeof(int[]).GetMethod("Set", new[] { typeof(int), typeof(int) });
-
+        
+            MethodInfo arrSet = typeof(int[]).GetMethod("Set", new[] { typeof(int), typeof(int) })!;
+        
             BinaryExpression assign = Expression.Assign(pQuickSort, Expression.Lambda<Action<int[], int, int>>(
                 Expression.Block(
                     new[] { s, e, temp }
-                    , Expression.Assign(s, pStart)
-                    , Expression.Assign(e, pEnd)
-                    , Expression.Assign(temp, Expression.ArrayIndex(pArr, e))
-                    , Expression.IfThen(Expression.LessThan(s, e),
-                        Expression.Block(
-                        Expression.Loop(
+                    , Expression.IfThen(Expression.LessThan(pStart, pEnd)
+                     , Expression.Block(
+                         Expression.Assign(s, pStart)
+                        , Expression.Assign(e, pEnd)
+                        , Expression.Assign(temp, Expression.ArrayIndex(pArr, e))
+                        //while(s<e)
+                        , Expression.Loop(
                             Expression.IfThenElse(Expression.LessThan(s, e)
                             , Expression.Block(
+                                //loop{ if(pArr[s]<=temp&&s<e){s++;}else{break to ltBreak1}}ltBreak1;
                                 Expression.Loop(
-                                    Expression.IfThenElse(Expression.AndAlso(Expression.LessThan(s, e)
-                                    , Expression.LessThanOrEqual(Expression.ArrayIndex(pArr, s), temp))
+                                    Expression.IfThenElse(Expression.AndAlso(Expression.LessThanOrEqual(Expression.ArrayIndex(pArr, s), temp), Expression.LessThan(s, e))
                                     , Expression.PostIncrementAssign(s)
                                     , Expression.Break(ltBreak1)), ltBreak1
                                 )
+                                //pArr[e]=pArr[s];
                                 , Expression.Call(pArr, arrSet, e, Expression.ArrayIndex(pArr, s))
-
+                                //loop{ if(pArr[e]>=temp&&s<e){e--;}else{break to ltBreak2}}ltBreak2;
                                 , Expression.Loop(
-                                    Expression.IfThenElse(Expression.AndAlso(Expression.LessThan(s, e)
-                                    , Expression.GreaterThanOrEqual(Expression.ArrayIndex(pArr, e), temp))
+                                    Expression.IfThenElse(Expression.AndAlso(Expression.GreaterThanOrEqual(Expression.ArrayIndex(pArr, e), temp)
+                                    , Expression.LessThan(s, e))
                                     , Expression.PostDecrementAssign(e)
                                     , Expression.Break(ltBreak2)), ltBreak2
                                     )
+                                //pArr[s]=pArr[e];
                                 , Expression.Call(pArr, arrSet, s, Expression.ArrayIndex(pArr, e))
                             )
+                            // else{break to ltBreak3}
                             , Expression.Break(ltBreak3))
                         , ltBreak3)
+                        //pArr[s]=temp;
                         , Expression.Call(pArr, arrSet, s, temp)
-                        , Expression.Invoke(pQuickSort, pArr, pStart, Expression.Decrement(s))
+                        //pQuickSort(pArr,pStart,s-1);
+                        , Expression.Invoke(pQuickSort, pArr, pStart,Expression.Decrement(s))
+                        //pQuickSort(pArr,s+1,pEnd);
                         , Expression.Invoke(pQuickSort, pArr, Expression.Increment(s), pEnd)
                      )
                    )
                 ), pArr, pStart, pEnd));
-
+        
             BlockExpression block = Expression.Block(new[] { pQuickSort }, assign, Expression.Invoke(pQuickSort, pArr, pStart, pEnd));
-            int[] arr = { 1, 3, 42, 5, 33, 22, 2, 39, 5, 37, 21 };
+            int[] arr = { 2, 3, 42, 5, 33, 22, 12, 39, 5, 37, 1 };
             int[] arr2 = new int[arr.Length];
             arr.CopyTo(arr2, 0);
             var lambda = Expression.Lambda<Action<int[], int, int>>(block, pArr, pStart, pEnd);
-
-            lambda.Compile()(arr, 0, arr.Length - 1);
+        
+            lambda.Compile().Invoke(arr, 0, arr.Length - 1);
+        
             QuickSort(arr2, 0, arr2.Length - 1);
             Console.WriteLine("arr :" + string.Join(",", arr));//1,2,3,5,5,21,22,33,37,39,42
             Console.WriteLine("arr2:" + string.Join(",", arr2));//1,2,3,5,5,21,22,33,37,39,42
-
+        
         }
 
-        /// <summary>
-        /// 习题十所以生成的代码与此方法类似
-        /// </summary>
-        /// <param name="arr"></param>
-        /// <param name="start"></param>
-        /// <param name="end"></param>
-        static void QuickSort(int[] arr, int start, int end)
+        ///习题十所以生成的代码与此方法类似
+        static void QuickSort(int[] arr, int startIndex, int endIndex)
         {
-            int s = start, e = end, temp = arr[e];
-            if (s < e)
+            if (startIndex < endIndex)
             {
+                int s = startIndex, e = endIndex, temp = arr[e];
                 while (s < e)
                 {
-                    while (s < e && arr[s] <= temp)
+                    while (arr[s] <= temp && s < e)
                     {
                         s++;
                     }
                     arr[e] = arr[s];
-                    while (s < e && arr[e] >= temp)
+                    while (arr[e] >= temp && s < e)
                     {
                         e--;
                     }
                     arr[s] = arr[e];
                 }
                 arr[s] = temp;
-                QuickSort(arr, start, s - 1);
-                QuickSort(arr, s + 1, end);
+                QuickSort(arr, startIndex, s - 1);
+                QuickSort(arr, s + 1, endIndex);
             }
         }
 
